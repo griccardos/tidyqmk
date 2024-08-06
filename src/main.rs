@@ -1,40 +1,26 @@
-use pest::Parser;
+use pest::{
+    error::{Error, ErrorVariant},
+    Parser,
+};
 use pest_derive::Parser;
 
 fn main() {
     let example = r#"
-     KC_Q, KC_W, KC_F, KC_P, KC_B,                                             KC_J, KC_L, KC_U,    KC_Y,   KC_SCLN,
-    LSFT_T(KC_A), LCTL_T(KC_R), LALT_T(KC_S), LGUI_T(KC_T), KC_G,             KC_M, RGUI_T(KC_N), RALT_T(KC_E), RCTL_T(KC_I), RSFT_T( KC_O),
-    KC_Z, KC_X, KC_C, KC_D, KC_V,                                             KC_K, KC_H, KC_COMM, KC_DOT, KC_QUOTE,
-    CW_TOGG , QK_REP , KC_DEL, LT(2,KC_TAB) , LT(1,KC_SPACE), LT(3,KC_ESC),   LSFT_T(KC_ENT) , LT(2,KC_BSPC),KC_NO,KC_NO,KC_NO,   SCRL_TO
-    "#;
+        [0] = LAYOUT_universal(
+          KC_Q, KC_W, KC_F, KC_P, KC_B,                                             KC_J, KC_L, KC_U,    KC_Y,   KC_SCLN,
+          LSFT_T(KC_A), LCTL_T(KC_R), LALT_T(KC_S), LGUI_T(KC_T), KC_G,             KC_M, RGUI_T(KC_N), RALT_T(KC_E), RCTL_T(KC_I), RSFT_T( KC_O),
+          KC_Z, KC_X, KC_C, KC_D, KC_V,                                             KC_K, KC_H, KC_COMM, KC_DOT, KC_QUOTE,
+          CW_TOGG , QK_REP , KC_DEL, LT(2,KC_TAB) , LT(1,KC_SPACE), LT(3,KC_ESC),   LSFT_T(KC_ENT) , LT(2,KC_BSPC),KC_NO,KC_NO,KC_NO,   SCRL_TO
+        )"#;
 
-    let lines = MyParser::parse(Rule::program, example).unwrap();
-
-    let mut line_codes = vec![];
-    for line in lines {
-        let mut keycodes = vec![];
-        for keycode in line.into_inner() {
-            keycodes.push(format(keycode))
+    let mut prog = match MyParser::parse(Rule::programouter, example) {
+        Ok(pairs) => pairs,
+        Err(e) => {
+            println!("{}", into_diagnostics(e));
+            return;
         }
-        line_codes.push(keycodes);
-    }
-    let max_cols = line_codes.iter().map(|x| x.len()).max().unwrap();
-    let max_len = line_codes.iter().fold(
-        std::iter::repeat(0).take(max_cols).collect(),
-        |acc: Vec<usize>, line| {
-            acc.iter()
-                .zip(line.iter().chain(std::iter::repeat(&"".to_string()))) //need to pad shorter cols
-                .map(|(a, l)| l.len().max(*a))
-                .collect()
-        },
-    );
-    for line in line_codes {
-        for (i, code) in line.iter().enumerate() {
-            print!("{: <1$},", code, max_len[i] + 1);
-        }
-        println!();
-    }
+    };
+    println!("{}", format(prog.next().unwrap()));
 }
 
 fn format(pair: pest::iterators::Pair<Rule>) -> String {
@@ -67,12 +53,113 @@ fn format(pair: pest::iterators::Pair<Rule>) -> String {
             }
             result.push_str(params.join(",").as_str());
         }
-        Rule::program => {}
+        Rule::layerblock => {
+            let mut inner = pair.into_inner();
+            let layernum = inner.next().unwrap();
+            let layer = format(layernum);
+            let layercmd = inner.next().unwrap().as_str();
+            result.push_str(&format!(
+                "[{layer}] = {layercmd}(\n{}\n)",
+                format(inner.next().unwrap())
+            ));
+        }
+        Rule::program => {
+            let inner = pair.into_inner();
+            for block in inner {
+                result.push_str(&format(block));
+                result.push_str(",");
+                result.push_str("\n");
+            }
+        }
+
+        Rule::layer => {
+            let mut line_codes = vec![];
+
+            let lines = pair.into_inner();
+            for line in lines {
+                let mut keycodes = vec![];
+                for keycode in line.into_inner() {
+                    keycodes.push(format(keycode))
+                }
+                line_codes.push(keycodes);
+            }
+            let max_cols = line_codes.iter().map(|x| x.len()).max().unwrap();
+            let max_len = line_codes.iter().fold(
+                std::iter::repeat(0).take(max_cols).collect(),
+                |acc: Vec<usize>, line| {
+                    acc.iter()
+                        .zip(line.iter().chain(std::iter::repeat(&"".to_string()))) //need to pad shorter cols
+                        .map(|(a, l)| l.len().max(*a))
+                        .collect()
+                },
+            );
+
+            for line in &line_codes {
+                for (i, code) in line.iter().enumerate() {
+                    let width = max_len[i] + 1;
+                    let centre = line.len() / 2;
+
+                    if i >= centre {
+                        result.push_str(&format!("{: <1$},", code, width));
+                    } else {
+                        result.push_str(&format!("{: >1$},", code, width));
+                    }
+
+                    if i == centre - 1 {
+                        result.push_str("_____");
+                    }
+                }
+                result.push_str("\n");
+            }
+        }
+        Rule::layernum => {
+            result.push_str(pair.as_str());
+        }
+        Rule::line => {} //not used, because we operate on the codes in it
+
         Rule::WHITESPACE => {}
         Rule::EOI => {}
-        Rule::line => {} //not used, because we operate on the codes in it
+        Rule::programouter => {}
     }
     result
+}
+
+fn into_diagnostics(e: Error<Rule>) -> String {
+    match &e.variant {
+        ErrorVariant::ParsingError {
+            positives,
+            negatives,
+        } => {
+            let mut message = format!("Parsing error at {:?}", e.line_col);
+            if !positives.is_empty() {
+                message.push_str(" (expected ");
+                message.push_str(
+                    positives
+                        .iter()
+                        .map(|s| format!("{:#?}", s))
+                        .collect::<Vec<String>>()
+                        .join(" or ")
+                        .as_str(),
+                );
+                message.push(')');
+            }
+
+            if !negatives.is_empty() {
+                message.push_str(" (unexpected ");
+                message.push_str(
+                    negatives
+                        .iter()
+                        .map(|s| format!("\"{:#?}\"", s))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                        .as_str(),
+                );
+                message.push(')');
+            }
+            message
+        }
+        _ => "Unknown error".to_owned(),
+    }
 }
 
 #[derive(Parser)]
@@ -80,7 +167,6 @@ fn format(pair: pest::iterators::Pair<Rule>) -> String {
 struct MyParser;
 #[cfg(test)]
 mod tests {
-    use pest::iterators::Pairs;
 
     use super::*;
 
@@ -145,13 +231,13 @@ mod tests {
        KC_Q, KC_W,
         "#;
 
-        let pairs = MyParser::parse(Rule::program, example).unwrap();
+        let pairs = MyParser::parse(Rule::layer, example).unwrap();
         println!("{:?}", pairs);
         assert_eq!(pairs.count(), 3); //includes EOI
     }
 
     #[test]
-    fn test_grammar_program() {
+    fn test_grammar_layer() {
         let example = r#"
             KC_Q, KC_W,
              KC_Q, KC_W,
@@ -159,7 +245,7 @@ mod tests {
             CW_TOGG ,KC_W
         "#;
 
-        let pairs = MyParser::parse(Rule::program, example).unwrap();
+        let pairs = MyParser::parse(Rule::layer, example).unwrap();
         println!("{pairs:?}");
         assert_eq!(pairs.count(), 4 + 1); //includes EOI
     }
