@@ -1,0 +1,8 @@
+program=_{SOI ~ NEWLINE*~ line ~ (NEWLINE~ line)* ~ NEWLINE*~ EOI}
+key={ function|keycode }
+keycode= { ASCII_ALPHA~ (ASCII_ALPHANUMERIC | "_")* }
+function= { keycode~"(" ~(params|"") ~")"}
+param = {ASCII_ALPHANUMERIC+}
+params = {param ~ ("," ~ param)* }
+line={ WHITESPACE?~ key ~ ("," ~ key)* ~ ","?} 
+WHITESPACE = _{ " " | "\t" }
