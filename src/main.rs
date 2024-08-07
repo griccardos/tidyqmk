@@ -1,3 +1,7 @@
+mod drawsvg;
+mod key;
+
+use drawsvg::draw_keymap;
 use easier::prelude::*;
 use pest::{
     error::{Error, ErrorVariant},
@@ -6,30 +10,89 @@ use pest::{
 use pest_derive::Parser;
 
 fn main() {
+    let ops = PrintOptions {
+        thumb_shift_in: 1,
+        left_align: false,
+        split_space: 5,
+    };
     let example = r#"
         [0] = LAYOUT_universal(
-          KC_Q, KC_W, KC_F, KC_P, KC_B,                                             KC_J, KC_L, KC_U,    KC_Y,   KC_SCLN,
-          LSFT_T(KC_A), KC_R, LALT_T(KC_S), LGUI_T(KC_T), KC_G,             KC_M, RGUI_T(KC_N), RALT_T(KC_E), KC_I, RSFT_T( KC_O),
+          KC_Q, KC_W, KC_F, KC_P, KC_B,                                             KC_1, KC_2, KC_U,    KC_Y,   KC_SCLN,
+          LSFT_T(KC_A), KC_R, KC_S, KC_T, KC_G,             KC_M, KC_N, KC_E, KC_I,  KC_O,
           KC_Z, KC_X, KC_C, KC_D, KC_V,                                             KC_K, KC_H, KC_COMM, KC_DOT, KC_QUOTE,
-          CW_TOGG , QK_REP , KC_DEL, LT(2,KC_TAB) , LT(1,KC_SPC), LT(3,KC_ESC),   KC_ENT , LT(2,KC_BSPC),KC_NO,KC_NO,KC_NO,   SCRL_TO
-        )"#;
+          CW_TOGG , QK_REP , KC_DEL, KC_TAB, LT(1,KC_SPC), KC_ESC,   KC_ENT , KC_BSPC,KC_NO,KC_NO,KC_NO,   SCRL_TO
+        ),
 
-    let mut prog = match MyParser::parse(Rule::programouter, example) {
-        Ok(pairs) => pairs,
+        [1] = LAYOUT_universal(
+          KC_Q, KC_W, KC_E, KC_R, KC_T,                                             KC_1, KC_2, KC_U,    KC_Y,   KC_SCLN,
+          LSFT_T(KC_A), KC_R, KC_S, KC_T, KC_G,             KC_M, KC_N, KC_E, KC_I,  KC_O,
+          KC_Z, KC_X, KC_C, KC_D, KC_V,                                             KC_K, KC_H, KC_COMM, KC_DOT, KC_QUOTE,
+          CW_TOGG , QK_REP , KC_DEL, KC_TAB, LT(1,KC_SPC), KC_ESC,   KC_ENT , KC_BSPC,KC_NO,KC_NO,KC_NO,   SCRL_TO
+        )
+
+        "#;
+
+    let prog = match MyParser::parse(Rule::programouter, example) {
+        Ok(mut pairs) => pairs.next().unwrap(),
         Err(e) => {
             println!("{}", into_diagnostics(e));
             return;
         }
     };
-    println!("{}", format(prog.next().unwrap()));
+    let keymap = get_keymap(prog, &ops);
+    print_keymap(&keymap, &ops);
+    draw_keymap(&keymap, &ops, "/tmp/my.svg").unwrap();
 }
 
-fn format(pair: pest::iterators::Pair<Rule>) -> String {
+struct Keymap {
+    layers: Vec<Layer>,
+}
+struct Layer {
+    num: String,
+    name: String,
+    keys: Vec<Vec<Option<String>>>,
+}
+
+fn get_keymap(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Keymap {
+    assert!(pair.as_rule() == Rule::program);
+    let mut keymap = Keymap { layers: Vec::new() };
+    //we go through layers
+    let inner = pair.into_inner();
+    for block in inner {
+        keymap.layers.push(get_layer(block, ops));
+    }
+
+    keymap
+}
+fn get_layer(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Layer {
+    let mut inner = pair.into_inner();
+    let num = inner.next().unwrap().as_str().to_string();
+    let name = inner.next().unwrap().as_str().to_string();
+    let lines = inner.next().unwrap().into_inner();
+
+    let mut line_codes = vec![];
+    for line in lines {
+        let mut keycodes = vec![];
+        for keycode in line.into_inner() {
+            keycodes.push(format_pair(keycode, ops))
+        }
+        line_codes.push(keycodes);
+    }
+    validate(&line_codes);
+    let grid = create_grid(line_codes, ops);
+    Layer {
+        keys: grid,
+        num,
+        name,
+    }
+}
+
+fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> String {
     let mut result = String::new();
     //println!("key is {:?}", pair);
     match pair.as_rule() {
         Rule::key => {
-            result.push_str(&format(pair.into_inner().next().unwrap()));
+            result.push_str(&format_pair(pair.into_inner().next().unwrap(), ops));
         }
         Rule::keycode => {
             result.push_str(pair.as_str());
@@ -37,10 +100,10 @@ fn format(pair: pest::iterators::Pair<Rule>) -> String {
         Rule::function => {
             let mut inner_pair = pair.into_inner();
             let function_name = inner_pair.next().unwrap();
-            result.push_str(&format(function_name));
+            result.push_str(&format_pair(function_name, ops));
             result.push_str("(");
             let params = inner_pair.next().unwrap();
-            result.push_str(&format(params));
+            result.push_str(&format_pair(params, ops));
             result.push_str(")");
         }
         Rule::param => {
@@ -50,53 +113,23 @@ fn format(pair: pest::iterators::Pair<Rule>) -> String {
             let mut params = Vec::new();
             let inner = pair.into_inner();
             for code in inner {
-                params.push(format(code));
+                params.push(format_pair(code, ops));
             }
             result.push_str(params.join(",").as_str());
         }
         Rule::layerblock => {
             let mut inner = pair.into_inner();
             let layernum = inner.next().unwrap();
-            let layer = format(layernum);
+            let layer = format_pair(layernum, ops);
             let layercmd = inner.next().unwrap().as_str();
             result.push_str(&format!(
                 "[{layer}] = {layercmd}(\n{}\n)",
-                format(inner.next().unwrap())
+                format_pair(inner.next().unwrap(), ops)
             ));
         }
-        Rule::program => {
-            let inner = pair.into_inner();
-            for block in inner {
-                result.push_str(&format(block));
-                result.push_str(",");
-                result.push_str("\n");
-            }
-        }
+        Rule::program => {} //dont use
 
-        Rule::layer => {
-            let lines = pair.into_inner();
-            let mut line_codes = vec![];
-            for line in lines {
-                let mut keycodes = vec![];
-                for keycode in line.into_inner() {
-                    keycodes.push(format(keycode))
-                }
-                line_codes.push(keycodes);
-            }
-
-            let max_cols = line_codes.iter().map(|x| x.len()).max().unwrap();
-            //for split, we want to arrange the columns in a way that the middle column is in the middle
-            //and the columns are split around it with free space on the outside
-            let mut grid: Vec<Vec<Option<String>>> =
-                line_codes.iter().map(|_| vec![None; max_cols]).to_vec();
-            for (gr, line) in grid.iter_mut().zip(line_codes.into_iter()) {
-                let start = (max_cols - line.len()) / 2;
-                for i in 0..line.len() {
-                    gr[start + i] = Some(line[i].clone());
-                }
-            }
-            result.push_str(print_grid(grid).as_str());
-        }
+        Rule::layer => {} //dont use
         Rule::layernum => {
             result.push_str(pair.as_str());
         }
@@ -113,46 +146,115 @@ fn format(pair: pest::iterators::Pair<Rule>) -> String {
     }
     result
 }
-fn print_grid(grid: Vec<Vec<Option<String>>>) -> String {
-    let mut result = String::new();
-    let max_cols = grid[0].len();
-    let max_len = grid.iter().fold(
-        std::iter::repeat(0).take(max_cols).collect(),
-        |acc: Vec<usize>, line| {
-            acc.iter()
-                .zip(line.iter())
-                .map(|(a, l)| l.as_ref().map(|a| a.len()).unwrap_or_default().max(*a))
-                .collect()
-        },
+
+fn validate(line_codes: &[Vec<String>]) {
+    //at least one row
+    assert!(!line_codes.is_empty());
+    //even number of cols for each row
+    assert!(
+        line_codes.iter().all(|a| a.len() % 2 == 0),
+        "{:?}",
+        line_codes
     );
+}
 
-    for (li, line) in grid.iter().enumerate() {
-        for (i, code) in line.iter().enumerate() {
-            let width = max_len[i] + 1;
-            let centre = line.len() / 2;
-            let comma = if li == grid.len() - 1 && i == line.len() - 1 {
-                ""
-            } else {
-                ","
-            };
-            match code {
-                Some(code) => {
-                    if i >= centre {
-                        result.push_str(&format!("{: <1$}{comma}", code, width));
-                    } else {
-                        result.push_str(&format!("{: >1$}{comma}", code, width));
-                    }
-                }
-                None => result.push_str(&format!("{: >1$}", " ", width + 1)), //+1 for the comma that is missing here
-            }
+//for split, we want to start in centre and work our way out
+//if we shift in thumb cols, we want to add space to each other row on the inside
+//we align each column to the centre and add padding to outside if needed
+fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Option<String>>> {
+    let rows = line_codes.len();
+    let mut grid = line_codes
+        .into_iter()
+        .map(|a| a.into_iter().map(|b| Some(b)).to_vec())
+        .to_vec();
 
-            if i == centre - 1 {
-                result.push_str("    ");
+    for (li, line) in grid.iter_mut().enumerate() {
+        if li != rows - 1 {
+            for _ in 0..ops.thumb_shift_in * 2 {
+                //add to centre
+                let centre = line.len() / 2;
+                line.insert(centre, None);
             }
         }
-        result.push_str("\n");
     }
-    result
+    let max_cols = grid.iter().map(|x| x.len()).max().unwrap();
+    for line in grid.iter_mut() {
+        while line.len() < max_cols {
+            line.push(None);
+            line.insert(0, None);
+        }
+    }
+
+    grid
+}
+
+struct PrintOptions {
+    thumb_shift_in: usize,
+    left_align: bool,
+    split_space: usize,
+}
+impl Default for PrintOptions {
+    fn default() -> Self {
+        PrintOptions {
+            thumb_shift_in: 1,
+            left_align: false,
+            split_space: 1,
+        }
+    }
+}
+
+fn print_keymap(keymap: &Keymap, ops: &PrintOptions) {
+    for layer in keymap.layers.iter() {
+        let grid = &layer.keys;
+        let mut result = String::new();
+        result.push_str(&format!("[{}] = {} (\n", layer.num, layer.name));
+        let max_cols = grid[0].len();
+        let max_len = grid.iter().fold(
+            std::iter::repeat(0).take(max_cols).collect(),
+            |acc: Vec<usize>, line| {
+                acc.iter()
+                    .zip(line.iter())
+                    .map(|(a, l)| l.as_ref().map(|a| a.len()).unwrap_or_default().max(*a))
+                    .collect()
+            },
+        );
+
+        for (li, line) in grid.iter().enumerate() {
+            for (i, code) in line.iter().enumerate() {
+                let width = max_len[i] + 1;
+                let centre = line.len() / 2;
+                let comma = if li == grid.len() - 1 && i == line.len() - 1 {
+                    ""
+                } else {
+                    ","
+                };
+                match code {
+                    Some(code) => {
+                        if i >= centre {
+                            result.push_str(&format!("{: <1$}{comma}", code, width));
+                        } else {
+                            if ops.left_align {
+                                result.push_str(&format!("{: <1$}{comma}", code, width));
+                            } else {
+                                result.push_str(&format!("{: >1$}{comma}", code, width));
+                            }
+                        }
+                    }
+                    None => result.push_str(&format!("{: ^1$}", "  ", width + 1)), //+1 for the comma that is missing here
+                }
+
+                if i == centre - 1 {
+                    let space = std::iter::repeat(" ")
+                        .take(ops.split_space)
+                        .collect::<String>();
+                    result.push_str(&space);
+                }
+            }
+            result.push_str("\n");
+        }
+        result.push_str(")");
+        println!("{result}");
+    }
 }
 
 fn into_diagnostics(e: Error<Rule>) -> String {
@@ -196,6 +298,7 @@ fn into_diagnostics(e: Error<Rule>) -> String {
 #[derive(Parser)]
 #[grammar = "qmk.pest"]
 struct MyParser;
+
 #[cfg(test)]
 mod tests {
 
@@ -294,7 +397,10 @@ mod tests {
         let example = r#"KC_Q"#;
 
         let mut pairs = MyParser::parse(Rule::key, example).unwrap();
-        assert_eq!("KC_Q", format(pairs.next().unwrap()))
+        assert_eq!(
+            "KC_Q",
+            format_pair(pairs.next().unwrap(), &PrintOptions::default())
+        )
     }
 
     #[test]
@@ -302,6 +408,44 @@ mod tests {
         let example = r#"LT(1,KC_NO)"#;
 
         let mut pairs = MyParser::parse(Rule::key, example).unwrap();
-        assert_eq!("LT(1,KC_NO)", format(pairs.next().unwrap()))
+        assert_eq!(
+            "LT(1,KC_NO)",
+            format_pair(pairs.next().unwrap(), &PrintOptions::default())
+        )
+    }
+
+    #[test]
+    fn test_layer() {
+        let example = r#"[0] = LAYOUT_universal(
+              KC_Q, KC_W, KC_F, KC_P, KC_B,                                             KC_1, KC_2, KC_U,    KC_Y,   KC_SCLN,
+              LSFT_T(KC_A), KC_R, KC_S, KC_T, KC_G,             KC_M, KC_N, KC_E, KC_I,  KC_O,
+              KC_Z, KC_X, KC_C, KC_D, KC_V,                                             KC_K, KC_H, KC_COMM, KC_DOT, KC_QUOTE,
+              CW_TOGG , QK_REP , KC_DEL, KC_TAB, LT(1,KC_SPC), KC_ESC,   KC_ENT , KC_BSPC,KC_NO,KC_NO,KC_NO,   SCRL_TO
+              )"#;
+
+        let mut pairs = MyParser::parse(Rule::layerblock, example)
+            .unwrap()
+            .next()
+            .unwrap()
+            .into_inner();
+
+        let number = pairs.next().unwrap().as_str();
+        assert_eq!(number, "0");
+        let name = pairs.next().unwrap().as_str();
+        assert_eq!(name, "LAYOUT_universal");
+        let lines = pairs.next().unwrap().into_inner();
+        assert_eq!(lines.clone().count(), 4);
+    }
+
+    #[test]
+    fn test_program() {
+        let example = r#"
+            [0] = LAYOUT_universal( KC_A),
+            [1] = LAYOUT_universal( KC_B)
+
+        "#;
+        let pairs = MyParser::parse(Rule::programouter, example).unwrap();
+        println!("{:?}", pairs);
+        assert_eq!(pairs.count(), 2);
     }
 }

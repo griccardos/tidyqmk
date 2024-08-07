@@ -7,3 +7,9 @@ edition = "2021"
 easier = "0.2.0"
 pest = "2.7.11"
 pest_derive = "2.7.11"
+svg = "0.17.0"
+wasm-bindgen = "0.2.92"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Wasm SVG Example</title>
+    </head>
+    <body>
+        <h1>Generated SVG</h1>
+        <div id="svg-container"></div>
+
+        <script type="module">
+            import init, { generate_svg } from "./tidyqmk.js";
+
+            async function run() {
+                // Initialize the Wasm module
+                await init();
+
+                // Generate the SVG string using the Wasm function
+                const svgString = generate_svg();
+
+                // Create a new DOM element to hold the SVG
+                const svgContainer = document.getElementById("svg-container");
+                svgContainer.innerHTML = svgString;
+            }
+
+            run();
+        </script>
+    </body>
+</html>
