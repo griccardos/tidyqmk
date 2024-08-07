@@ -17,13 +17,6 @@ impl PrintKey {
             bottom: String::new(),
         }
     }
-    pub fn mb(middle: &str, bottom: &str) -> Self {
-        Self {
-            top: String::new(),
-            middle: middle.to_string(),
-            bottom: bottom.to_string(),
-        }
-    }
 }
 
 enum KeyType {

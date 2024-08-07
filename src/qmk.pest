@@ -1,5 +1,5 @@
-programouter   =  _{SOI ~ (WHITESPACE|NEWLINE)* ~ program ~ (WHITESPACE|NEWLINE)* ~ EOI }
-program  =  { layerblock ~ ("," ~ layerblock)* }
+programouter   =  _{SOI ~ white ~ program ~ white ~ EOI }
+program  =  { layerblock ~ white~ ("," ~ white ~ layerblock ~ white)*~","? }
 layerblock = { "[" ~ layernum ~ "]" ~ "=" ~ keycode ~ "(" ~ layer ~ ")" }
 layer      = {  NEWLINE* ~ line ~ (NEWLINE ~ line)* ~ NEWLINE*  }
 key        =  { function | keycode }
@@ -12,3 +12,4 @@ WHITESPACE = _{ " " | "\t" }
 layernum   = { number|validname }
 validname  =  { (ASCII_ALPHA|"_") ~ (ASCII_ALPHANUMERIC | "_")* }
 number    =   { ASCII_DIGIT+ }
+white    =   _{ (WHITESPACE|NEWLINE)* }

@@ -52,7 +52,7 @@ pub fn draw_keymap(
                 if i >= centre {
                     x += centre_width;
                 }
-                let y = layi * layer_height + li * key_height + padding + layi * padding;
+                let y = layi * layer_height + li * key_height + padding;
                 if let Some(code) = code {
                     let rect = Rectangle::new()
                         .set("x", x)

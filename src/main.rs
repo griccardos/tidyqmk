@@ -9,12 +9,25 @@ use pest::{
 };
 use pest_derive::Parser;
 
+struct PrintOptions {
+    thumb_shift_in: usize,
+    left_align: bool,
+    split_space: usize,
+    align_layers: bool,
+}
+impl Default for PrintOptions {
+    fn default() -> Self {
+        PrintOptions {
+            thumb_shift_in: 1,
+            left_align: false,
+            split_space: 5,
+            align_layers: true,
+        }
+    }
+}
+
 fn main() {
-    let ops = PrintOptions {
-        thumb_shift_in: 1,
-        left_align: false,
-        split_space: 5,
-    };
+    let ops = PrintOptions::default();
     let example = r#"
         [0] = LAYOUT_universal(
           KC_Q, KC_W, KC_F, KC_P, KC_B,                                             KC_1, KC_2, KC_U,    KC_Y,   KC_SCLN,
@@ -25,9 +38,9 @@ fn main() {
 
         [1] = LAYOUT_universal(
           KC_Q, KC_W, KC_E, KC_R, KC_T,                                             KC_1, KC_2, KC_U,    KC_Y,   KC_SCLN,
-          LSFT_T(KC_A), KC_R, KC_S, KC_T, KC_G,             KC_M, KC_N, KC_E, KC_I,  KC_O,
+          KC_A, KC_R, KC_S, KC_T, KC_G,             KC_M, KC_N, KC_E, KC_I,  KC_O,
           KC_Z, KC_X, KC_C, KC_D, KC_V,                                             KC_K, KC_H, KC_COMM, KC_DOT, KC_QUOTE,
-          CW_TOGG , QK_REP , KC_DEL, KC_TAB, LT(1,KC_SPC), KC_ESC,   KC_ENT , KC_BSPC,KC_NO,KC_NO,KC_NO,   SCRL_TO
+          CW_TOGG , QK_REP , KC_DEL, KC_TAB,KC_SPC, KC_ESC,   KC_ENT , KC_BSPC,KC_NO,KC_NO,KC_NO,   SCRL_TO
         )
 
         "#;
@@ -143,6 +156,7 @@ fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> String 
         Rule::EOI => {}
         Rule::programouter => {}
         Rule::number => {}
+        Rule::white => {}
     }
     result
 }
@@ -188,40 +202,38 @@ fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Opti
     grid
 }
 
-struct PrintOptions {
-    thumb_shift_in: usize,
-    left_align: bool,
-    split_space: usize,
-}
-impl Default for PrintOptions {
-    fn default() -> Self {
-        PrintOptions {
-            thumb_shift_in: 1,
-            left_align: false,
-            split_space: 1,
-        }
-    }
-}
-
 fn print_keymap(keymap: &Keymap, ops: &PrintOptions) {
-    for layer in keymap.layers.iter() {
+    let mut column_layer_lens = keymap
+        .layers
+        .iter()
+        .map(|layer| {
+            let max_cols = layer.keys[0].len();
+
+            layer.keys.iter().fold(
+                std::iter::repeat(0).take(max_cols).collect(),
+                |acc: Vec<usize>, line| {
+                    acc.iter()
+                        .zip(line.iter())
+                        .map(|(a, l)| l.as_ref().map(|a| a.len()).unwrap_or_default().max(*a))
+                        .collect()
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+
+    for (layi, layer) in keymap.layers.iter().enumerate() {
         let grid = &layer.keys;
         let mut result = String::new();
         result.push_str(&format!("[{}] = {} (\n", layer.num, layer.name));
-        let max_cols = grid[0].len();
-        let max_len = grid.iter().fold(
-            std::iter::repeat(0).take(max_cols).collect(),
-            |acc: Vec<usize>, line| {
-                acc.iter()
-                    .zip(line.iter())
-                    .map(|(a, l)| l.as_ref().map(|a| a.len()).unwrap_or_default().max(*a))
-                    .collect()
-            },
-        );
 
         for (li, line) in grid.iter().enumerate() {
             for (i, code) in line.iter().enumerate() {
-                let width = max_len[i] + 1;
+                let max_len = if ops.align_layers {
+                    column_layer_lens.iter().map(|x| x[i]).max().unwrap()
+                } else {
+                    column_layer_lens[layi][i]
+                };
+                let width = max_len + 1;
                 let centre = line.len() / 2;
                 let comma = if li == grid.len() - 1 && i == line.len() - 1 {
                     ""
@@ -253,6 +265,8 @@ fn print_keymap(keymap: &Keymap, ops: &PrintOptions) {
             result.push_str("\n");
         }
         result.push_str(")");
+        result.push_str(",\n");
+
         println!("{result}");
     }
 }
@@ -440,7 +454,9 @@ mod tests {
     #[test]
     fn test_program() {
         let example = r#"
-            [0] = LAYOUT_universal( KC_A),
+            [0] = LAYOUT_universal( KC_A,KC_B,
+            KC_Q, KC_W,
+            ),
             [1] = LAYOUT_universal( KC_B)
 
         "#;
