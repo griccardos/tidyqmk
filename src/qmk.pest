@@ -3,10 +3,12 @@ program  =  { layerblock ~ ("," ~ layerblock)* }
 layerblock = { "[" ~ layernum ~ "]" ~ "=" ~ keycode ~ "(" ~ layer ~ ")" }
 layer      = {  NEWLINE* ~ line ~ (NEWLINE ~ line)* ~ NEWLINE*  }
 key        =  { function | keycode }
-keycode    =  { ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
-function   =  { keycode ~ "(" ~ params ~ ")" }
-param      =  { (ASCII_ALPHANUMERIC | "_")* }
-params     =  { param ~ ("," ~ param)* }
+keycode    =  { validname }
+function   =  { validname ~ "(" ~ params ~ ")" }
+param      =  { validname|number }
+params     =  { (param ~ ("," ~ param)*)? }
 line       =  { WHITESPACE? ~ key ~ ("," ~ key)* ~ ","? }
 WHITESPACE = _{ " " | "\t" }
-layernum   = { ASCII_DIGIT+ }
+layernum   = { number|validname }
+validname  =  { (ASCII_ALPHA|"_") ~ (ASCII_ALPHANUMERIC | "_")* }
+number    =   { ASCII_DIGIT+ }

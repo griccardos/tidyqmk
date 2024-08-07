@@ -47,6 +47,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "easier"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3512b56e3afa442af0db878935a530cf9983b5fa534b0b64014898449bd51da6"
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -183,6 +189,7 @@ dependencies = [
 name = "tidyqmk"
 version = "0.1.0"
 dependencies = [
+ "easier",
  "pest",
  "pest_derive",
 ]
