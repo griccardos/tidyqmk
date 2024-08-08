@@ -3,13 +3,18 @@ use svg::{
     Document,
 };
 
-use crate::{key::nice_code, Keymap, PrintOptions};
+use crate::{key::nice_code, myparser::Keymap, PrintOptions};
 
 pub fn draw_keymap(
     keymap: &Keymap,
     ops: &PrintOptions,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let svg = generate_svg(keymap, ops);
+    std::fs::write(path, svg)?;
+    Ok(())
+}
+pub fn generate_svg(keymap: &Keymap, ops: &PrintOptions) -> String {
     let key_width = 100;
     let key_height = 50;
     let padding = 50;
@@ -92,6 +97,7 @@ pub fn draw_keymap(
         doc = doc.add(group);
     }
 
-    svg::save(path, &doc)?;
-    Ok(())
+    let mut buffer = Vec::new();
+    svg::write(&mut buffer, &doc).unwrap();
+    String::from_utf8(buffer).unwrap()
 }

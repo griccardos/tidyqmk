@@ -1,7 +1,7 @@
 use easier::prelude::*;
 use pest::Parser;
 
-use crate::{format_pair, MyParser, PrintOptions, Rule};
+use crate::{myparser::format_pair, MyParser, PrintOptions, Rule};
 
 #[derive(Default)]
 pub struct PrintKey {
@@ -14,6 +14,14 @@ impl PrintKey {
         Self {
             top: String::new(),
             middle: middle.to_string(),
+            bottom: String::new(),
+        }
+    }
+
+    fn mt(mid: &str, top: &str) -> PrintKey {
+        Self {
+            top: top.to_string(),
+            middle: mid.to_string(),
             bottom: String::new(),
         }
     }
@@ -68,6 +76,34 @@ fn nice_function(name: &str, params: &Vec<String>, raw: &str) -> PrintKey {
             middle: tap.middle,
             bottom: format!("L{}", params[0]),
         }
+    } else if (name == "LSFT_T" || name == "RSFT_T") && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey {
+            top: tap.top,
+            middle: tap.middle,
+            bottom: "⇧".to_string(),
+        }
+    } else if (name == "LCTL_T" || name == "RCTL_T") && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey {
+            top: tap.top,
+            middle: tap.middle,
+            bottom: "⌃".to_string(),
+        }
+    } else if (name == "LALT_T" || name == "RALT_T") && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey {
+            top: tap.top,
+            middle: tap.middle,
+            bottom: "⌥".to_string(),
+        }
+    } else if (name == "LGUI_T" || name == "RGUI_T") && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey {
+            top: tap.top,
+            middle: tap.middle,
+            bottom: "⌘".to_string(),
+        }
     } else {
         PrintKey::new(raw)
     }
@@ -94,11 +130,16 @@ fn nice_keycode(code: &str) -> PrintKey {
         "KC_SPC" => PrintKey::new("␣"),
         "KC_TAB" => PrintKey::new("⇥"),
         "KC_DEL" => PrintKey::new("⌦"),
-        "KC_1" => PrintKey {
-            top: "!".to_string(),
-            middle: "1".to_string(),
-            bottom: "".to_string(),
-        },
+        "KC_1" => PrintKey::mt("1", "!"),
+        "KC_2" => PrintKey::mt("2", "@"),
+        "KC_3" => PrintKey::mt("3", "#"),
+        "KC_4" => PrintKey::mt("4", "$"),
+        "KC_5" => PrintKey::mt("5", "%"),
+        "KC_6" => PrintKey::mt("6", "^"),
+        "KC_7" => PrintKey::mt("7", "&"),
+        "KC_8" => PrintKey::mt("8", "*"),
+        "KC_9" => PrintKey::mt("9", "("),
+        "KC_0" => PrintKey::mt("0", ")"),
 
         _ if code.starts_with("KC_") => {
             let part2 = code.split_once('_').unwrap().1;
