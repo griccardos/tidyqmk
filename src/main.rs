@@ -42,5 +42,5 @@ fn main() {
     let keymap = get_keymap(prog, &ops).unwrap();
     let keymap_str = keymap_string(&keymap, &ops);
     println!("{}", keymap_str);
-    draw_keymap(&keymap, &ops, "/tmp/my.svg").unwrap();
+    draw_keymap(&keymap, &ops, "/tmp/keymap.svg").unwrap();
 }

@@ -14,3 +14,7 @@ wasm-bindgen = "0.2.92"
 crate-type = ["cdylib"]
 path = "src/lib.rs"
 name = "tidyqmkweb"
+
+[[bin]]
+name = "tidyqmk"
+path = "src/main.rs"

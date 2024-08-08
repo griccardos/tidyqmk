@@ -1,19 +1,22 @@
 #clean build directory, build wasm, and copy to wasm directory
 #default action
-all: clean build copy run
+default: all
 
 #clean build directory
-clean:
+#only for macos
+[macos]
+all:
     rm -rf build
-
-#build wasm
-build:
     mkdir build
     wasm-pack build --target web --out-dir build
-
-#copy wasm to wasm directory
-copy:
     cp html/index.html build/index.html
-
-run:
     python3 -m http.server --directory build
+
+[windows]
+all:
+    #!powershell.exe
+    rd build
+    md build
+    wasm-pack build --target web --out-dir build
+    copy html\index.html build\index.html
+    python -m http.server --directory build

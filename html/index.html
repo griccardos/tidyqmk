@@ -71,6 +71,10 @@ Limitations:
                 <label style="width: 150px">Align Layers:</label>
                 <input type="checkbox" id="align_layers" />
             </div>
+            <div style="display: flex">
+                <label style="width: 150px">Number of thumbs:</label>
+                <input type="number" id="number_of_thumbs" />
+            </div>
         </div>
 
         <script type="module">
@@ -91,6 +95,8 @@ Limitations:
                 document.getElementById("split_space").value = ops.split_space;
                 document.getElementById("align_layers").checked =
                     ops.align_layers;
+                document.getElementById("number_of_thumbs").value =
+                    ops.number_of_thumbs;
             }
 
             async function update() {
@@ -108,6 +114,9 @@ Limitations:
                 );
                 ops.align_layers =
                     document.getElementById("align_layers").checked;
+                ops.number_of_thumbs = parseInt(
+                    document.getElementById("number_of_thumbs").value,
+                );
 
                 const [svgString, outString, error] = generate_svg(qmkin, ops);
 
@@ -146,6 +155,9 @@ Limitations:
                 .addEventListener("input", update);
             document
                 .getElementById("align_layers")
+                .addEventListener("input", update);
+            document
+                .getElementById("number_of_thumbs")
                 .addEventListener("input", update);
 
             run();

@@ -156,7 +156,7 @@ fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Opti
 
     //if thumb shift, we add to each row inside except thumb row
     for (li, line) in grid.iter_mut().enumerate() {
-        if li != rows - 1 {
+        if li < rows - ops.number_of_thumbs {
             for _ in 0..ops.thumb_shift_in * 2 {
                 //add to centre
                 let centre = line.len() / 2;

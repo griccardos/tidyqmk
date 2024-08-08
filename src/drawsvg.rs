@@ -5,6 +5,7 @@ use svg::{
 
 use crate::{key::nice_code, myparser::Keymap, PrintOptions};
 
+#[allow(dead_code)] //only used in bin
 pub fn draw_keymap(
     keymap: &Keymap,
     ops: &PrintOptions,
@@ -18,7 +19,7 @@ pub fn create_svg(keymap: &Keymap, ops: &PrintOptions) -> String {
     let key_width = 100;
     let key_height = 70;
     let padding = 50;
-    let centre_width = 50;
+    let centre_width = ops.split_space * 10;
     let full_width = keymap.layers.first().unwrap().keys.first().unwrap().len() * key_width
         + padding * 2
         + centre_width;
