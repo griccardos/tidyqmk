@@ -54,7 +54,10 @@ impl From<&str> for KeyType {
                     raw,
                 )
             }
-            _ => unreachable!("Trying to parse a {:?}", parsed.as_rule()),
+            _ => {
+                println!("Error Trying to parse a {:?}", parsed.as_rule());
+                KeyType::KeyCode(format!("{:?}", parsed.as_rule()))
+            }
         }
     }
 }
@@ -104,6 +107,18 @@ fn nice_function(name: &str, params: &Vec<String>, raw: &str) -> PrintKey {
             middle: tap.middle,
             bottom: "⌘".to_string(),
         }
+    } else if name == "S" && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey::mt(&format!("⇧{}", tap.middle), &tap.top)
+    } else if name == "C" && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey::mt(&format!("⌃{}", tap.middle), &tap.top)
+    } else if name == "A" && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey::mt(&format!("⌥{}", tap.middle), &tap.top)
+    } else if name == "G" && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey::mt(&format!("⌘{}", tap.middle), &tap.top)
     } else {
         PrintKey::new(raw)
     }
@@ -114,22 +129,29 @@ fn nice_keycode(code: &str) -> PrintKey {
         "KC_UP" => PrintKey::new("↑"),
         "KC_DOWN" => PrintKey::new("↓"),
         "KC_LEFT" => PrintKey::new("←"),
-        "KC_RGHT" => PrintKey::new("→"),
-        "KC_NO" => PrintKey::new(""),
-        "KC_DOT" => PrintKey::new("."),
-        "KC_COMM" => PrintKey::new(","),
-        "KC_SLSH" => PrintKey::new("/"),
-        "KC_BSLS" => PrintKey::new("\\"),
-        "KC_QUOTE" => PrintKey {
-            top: "\"".to_string(),
-            middle: "'".to_string(),
-            bottom: "".to_string(),
-        },
+        "KC_RGHT" | "KC_RIGHT" => PrintKey::new("→"),
+        "KC_NO" | "XXXXXXX" => PrintKey::new(""),
+        "KC_DOT" => PrintKey::mt(".", ">"),
+        "KC_COMM" => PrintKey::mt(",", "<"),
+        "KC_SLSH" => PrintKey::mt("/", "?"),
+        "KC_BSLS" => PrintKey::mt("\\", "|"),
         "KC_ENT" => PrintKey::new("↵"),
         "KC_BSPC" => PrintKey::new("⌫"),
         "KC_SPC" => PrintKey::new("␣"),
         "KC_TAB" => PrintKey::new("⇥"),
         "KC_DEL" => PrintKey::new("⌦"),
+        "KC_GRV" => PrintKey::mt("`", "~"),
+        "KC_LBRC" => PrintKey::mt("[", "{"),
+        "KC_RBRC" => PrintKey::mt("]", "}"),
+        "KC_SCLN" => PrintKey::mt(";", ":"),
+        "KC_EQL" => PrintKey::mt("=", "+"),
+        "KC_MINS" => PrintKey::mt("-", "_"),
+        "KC_CAPS" => PrintKey::new("⇪"),
+        "KC_QUOT" | "KC_QUOTE" => PrintKey::mt("'", "\""),
+        "KC_LCTL" | "KC_RCTL" => PrintKey::new("⌃"),
+        "KC_LSFT" | "KC_RSFT" => PrintKey::new("⇧"),
+        "KC_LALT" | "KC_RALT" => PrintKey::new("⌥"),
+        "KC_LGUI" | "KC_RGUI" => PrintKey::new("⌘"),
         "KC_1" => PrintKey::mt("1", "!"),
         "KC_2" => PrintKey::mt("2", "@"),
         "KC_3" => PrintKey::mt("3", "#"),
@@ -140,6 +162,46 @@ fn nice_keycode(code: &str) -> PrintKey {
         "KC_8" => PrintKey::mt("8", "*"),
         "KC_9" => PrintKey::mt("9", "("),
         "KC_0" => PrintKey::mt("0", ")"),
+        "KC_TRNS" | "_______" => PrintKey::new("⇄"),
+        "KC_PDOT" => PrintKey::mt(".", "⌦"),
+        "KC_P1" => PrintKey::mt("1", "End"),
+        "KC_P2" => PrintKey::mt("2", "↓"),
+        "KC_P3" => PrintKey::mt("3", "PgDn"),
+        "KC_P4" => PrintKey::mt("4", "←"),
+        "KC_P5" => PrintKey::mt("5", "Clear"),
+        "KC_P6" => PrintKey::mt("6", "→"),
+        "KC_P7" => PrintKey::mt("7", "Home"),
+        "KC_P8" => PrintKey::mt("8", "↑"),
+        "KC_P9" => PrintKey::mt("9", "PgUp"),
+        "KC_P0" => PrintKey::mt("0", "Ins"),
+        "KC_PPLS" => PrintKey::new("+"),
+        "KC_PMNS" => PrintKey::new("-"),
+        "KC_PAST" => PrintKey::new("*"),
+        "KC_PSLS" => PrintKey::new("/"),
+        "KC_PEQL" => PrintKey::new("="),
+
+        //shifted versions
+        "KC_EXLM" => PrintKey::new("!"),
+        "KC_AT" => PrintKey::new("@"),
+        "KC_HASH" => PrintKey::new("#"),
+        "KC_DLR" => PrintKey::new("$"),
+        "KC_PERC" => PrintKey::new("%"),
+        "KC_CIRC" => PrintKey::new("^"),
+        "KC_AMPR" => PrintKey::new("&"),
+        "KC_ASTR" => PrintKey::new("*"),
+        "KC_LPRN" => PrintKey::new("("),
+        "KC_RPRN" => PrintKey::new(")"),
+        "KC_TILD" => PrintKey::new("~"),
+        "KC_LCBR" => PrintKey::new("{"),
+        "KC_RCBR" => PrintKey::new("}"),
+        "KC_COLN" => PrintKey::new(":"),
+        "KC_PLUS" => PrintKey::new("+"),
+        "KC_UNDS" => PrintKey::new("_"),
+        "KC_PIPE" => PrintKey::new("|"),
+        "KC_LT" => PrintKey::new("<"),
+        "KC_GT" => PrintKey::new(">"),
+        "KC_QUES" => PrintKey::new("?"),
+        "KC_DQUO" => PrintKey::new("\""),
 
         _ if code.starts_with("KC_") => {
             let part2 = code.split_once('_').unwrap().1;

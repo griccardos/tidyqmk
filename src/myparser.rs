@@ -1,23 +1,12 @@
 use easier::prelude::*;
-use pest::error::{Error, ErrorVariant};
+use pest::{
+    error::{Error, ErrorVariant},
+    iterators::Pair,
+};
 use pest_derive::Parser;
 
-pub struct PrintOptions {
-    thumb_shift_in: usize,
-    left_align: bool,
-    split_space: usize,
-    align_layers: bool,
-}
-impl Default for PrintOptions {
-    fn default() -> Self {
-        PrintOptions {
-            thumb_shift_in: 1,
-            left_align: false,
-            split_space: 5,
-            align_layers: true,
-        }
-    }
-}
+use crate::{error::MyError, options::PrintOptions};
+
 pub struct Keymap {
     pub layers: Vec<Layer>,
 }
@@ -27,18 +16,28 @@ pub struct Layer {
     pub keys: Vec<Vec<Option<String>>>,
 }
 
-pub fn get_keymap(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Keymap {
+pub fn get_keymap(pair: Pair<Rule>, ops: &PrintOptions) -> Result<Keymap, MyError> {
     assert!(pair.as_rule() == Rule::program);
     let mut keymap = Keymap { layers: Vec::new() };
     //we go through layers
     let inner = pair.into_inner();
     for block in inner {
-        keymap.layers.push(get_layer(block, ops));
+        keymap.layers.push(get_layer(block, ops)?);
     }
 
-    keymap
+    //check all layers have the same number of keys
+    let num_keys = keymap.layers[0].keys.len();
+    for layer in &keymap.layers {
+        if layer.keys.len() != num_keys {
+            return Err("All layers must have the same number of keys"
+                .to_string()
+                .into());
+        }
+    }
+
+    Ok(keymap)
 }
-fn get_layer(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Layer {
+fn get_layer(pair: Pair<Rule>, ops: &PrintOptions) -> Result<Layer, MyError> {
     let mut inner = pair.into_inner();
     let num = inner.next().unwrap().as_str().to_string();
     let name = inner.next().unwrap().as_str().to_string();
@@ -52,13 +51,13 @@ fn get_layer(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Layer {
         }
         line_codes.push(keycodes);
     }
-    validate(&line_codes);
+    validate(&line_codes)?;
     let grid = create_grid(line_codes, ops);
-    Layer {
+    Ok(Layer {
         keys: grid,
         num,
         name,
-    }
+    })
 }
 
 pub fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> String {
@@ -114,6 +113,9 @@ pub fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Str
         Rule::line => {}
         //these are all ignored
         Rule::WHITESPACE => {}
+        Rule::COMMENT => {}
+        Rule::multicomment => {}
+        Rule::linecomment => {}
         Rule::EOI => {}
         Rule::programouter => {}
         Rule::number => {}
@@ -122,20 +124,22 @@ pub fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Str
     result
 }
 
-fn validate(line_codes: &[Vec<String>]) {
+fn validate(line_codes: &[Vec<String>]) -> Result<(), MyError> {
     //at least one row
-    assert!(!line_codes.is_empty());
-    //even number of cols for each row
-    assert!(
-        line_codes.iter().all(|a| a.len() % 2 == 0),
-        "{:?}",
-        line_codes
-    );
+    if line_codes.is_empty() {
+        return Err("No rows".to_string().into());
+    }
+    // //even number of cols for each row
+    // if !line_codes.iter().all(|a| a.len() % 2 == 0) {
+    //     return Err("Odd number of columns in a row".to_string().into());
+    // }
+    Ok(())
 }
 
 //for split, we want to start in centre and work our way out
 //if we shift in thumb cols, we want to add space to each other row on the inside
 //we align each column to the centre and add padding to outside if needed
+//if uneven number of keys, we may have to pad keys
 fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Option<String>>> {
     let rows = line_codes.len();
     let mut grid = line_codes
@@ -143,6 +147,14 @@ fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Opti
         .map(|a| a.into_iter().map(|b| Some(b)).to_vec())
         .to_vec();
 
+    //make sure even number in grid (sometimes less columns on one side)
+    for line in grid.iter_mut() {
+        if line.len() % 2 != 0 {
+            line.push(None);
+        }
+    }
+
+    //if thumb shift, we add to each row inside except thumb row
     for (li, line) in grid.iter_mut().enumerate() {
         if li != rows - 1 {
             for _ in 0..ops.thumb_shift_in * 2 {
@@ -152,6 +164,7 @@ fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Opti
             }
         }
     }
+
     let max_cols = grid.iter().map(|x| x.len()).max().unwrap();
     for line in grid.iter_mut() {
         while line.len() < max_cols {
@@ -163,15 +176,17 @@ fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Opti
     grid
 }
 
-pub fn generate_keymap(keymap: &Keymap, ops: &PrintOptions) -> String {
+pub fn keymap_string(keymap: &Keymap, ops: &PrintOptions) -> String {
+    let column_count = keymap.layers[0].keys[0].len();
+
+    println!("{:?} cols:{}", keymap.layers[0].keys, column_count);
+
     let column_layer_lens = keymap
         .layers
         .iter()
         .map(|layer| {
-            let max_cols = layer.keys[0].len();
-
             layer.keys.iter().fold(
-                std::iter::repeat(0).take(max_cols).collect(),
+                std::iter::repeat(0).take(column_count).collect(),
                 |acc: Vec<usize>, line| {
                     acc.iter()
                         .zip(line.iter())
@@ -188,6 +203,9 @@ pub fn generate_keymap(keymap: &Keymap, ops: &PrintOptions) -> String {
         result.push_str(&format!("[{}] = {} (\n", layer.num, layer.name));
 
         for (li, line) in grid.iter().enumerate() {
+            println!("line is {:?}", line);
+            println!("column_layer_lens is {:?}", column_layer_lens);
+
             for (i, code) in line.iter().enumerate() {
                 let max_len = if ops.align_layers {
                     column_layer_lens.iter().map(|x| x[i]).max().unwrap()
@@ -196,10 +214,12 @@ pub fn generate_keymap(keymap: &Keymap, ops: &PrintOptions) -> String {
                 };
                 let width = max_len + 1;
                 let centre = line.len() / 2;
-                let comma = if li == grid.len() - 1 && i == line.len() - 1 {
-                    ""
-                } else {
-                    ","
+                let mut comma = ",";
+                //check if there are no more buttons after this
+                if li == grid.len() - 1 {
+                    if line.iter().skip(i + 1).all(|x| x.is_none()) {
+                        comma = "";
+                    }
                 };
                 match code {
                     Some(code) => {
@@ -231,7 +251,7 @@ pub fn generate_keymap(keymap: &Keymap, ops: &PrintOptions) -> String {
     result
 }
 
-pub fn into_diagnostics(e: Error<Rule>) -> String {
+pub fn into_diagnostics(e: &Error<Rule>) -> String {
     match &e.variant {
         ErrorVariant::ParsingError {
             positives,
@@ -425,5 +445,39 @@ mod tests {
         let pairs = MyParser::parse(Rule::programouter, example).unwrap();
         println!("{:?}", pairs);
         assert_eq!(pairs.count(), 2);
+    }
+
+    #[test]
+    fn test_comments() {
+        let example = r#"
+            // This is a comment
+            [0] = LAYOUT_universal( KC_A,KC_B,
+            KC_Q,/*something
+            other
+            */ KC_W,
+            ),
+            [1] = LAYOUT_universal( KC_B)
+
+        "#;
+        let pairs = MyParser::parse(Rule::programouter, example).unwrap();
+        println!("{:?}", pairs);
+        assert_eq!(pairs.count(), 2);
+    }
+
+    #[test]
+    fn test_uneven() {
+        let example = r#"
+            [0] = LAYOUT_universal( KC_A,KC_B,
+            KC_Q
+            ),
+            [1] = LAYOUT_universal( KC_B,KC_B
+            KC_1
+            )
+
+        "#;
+        let ops = PrintOptions::default();
+        let mut prog = MyParser::parse(Rule::programouter, example).unwrap();
+        let keymap = get_keymap(prog.next().unwrap(), &ops).unwrap();
+        keymap_string(&keymap, &ops);
     }
 }

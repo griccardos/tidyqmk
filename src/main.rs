@@ -1,15 +1,17 @@
 use drawsvg::draw_keymap;
-use myparser::generate_keymap;
 use myparser::get_keymap;
 use myparser::into_diagnostics;
+use myparser::keymap_string;
 use myparser::MyParser;
-use myparser::PrintOptions;
 use myparser::Rule;
+use options::PrintOptions;
 use pest::Parser;
 
 mod drawsvg;
+mod error;
 mod key;
 mod myparser;
+mod options;
 
 fn main() {
     let ops = PrintOptions::default();
@@ -33,12 +35,12 @@ fn main() {
     let prog = match MyParser::parse(Rule::programouter, example) {
         Ok(mut pairs) => pairs.next().unwrap(),
         Err(e) => {
-            println!("{}", into_diagnostics(e));
+            println!("{}", into_diagnostics(&e));
             return;
         }
     };
-    let keymap = get_keymap(prog, &ops);
-    let keymap_str = generate_keymap(&keymap, &ops);
+    let keymap = get_keymap(prog, &ops).unwrap();
+    let keymap_str = keymap_string(&keymap, &ops);
     println!("{}", keymap_str);
     draw_keymap(&keymap, &ops, "/tmp/my.svg").unwrap();
 }

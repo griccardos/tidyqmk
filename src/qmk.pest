@@ -8,8 +8,13 @@ function   =  { validname ~ "(" ~ params ~ ")" }
 param      =  { validname|number }
 params     =  { (param ~ ("," ~ param)*)? }
 line       =  { WHITESPACE? ~ key ~ ("," ~ key)* ~ ","? }
-WHITESPACE = _{ " " | "\t" }
 layernum   = { number|validname }
 validname  =  { (ASCII_ALPHA|"_") ~ (ASCII_ALPHANUMERIC | "_")* }
 number    =   { ASCII_DIGIT+ }
 white    =   _{ (WHITESPACE|NEWLINE)* }
+
+//implicit rules
+multicomment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+linecomment= _{ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+COMMENT = _{ multicomment | linecomment }
+WHITESPACE = _{ " " | "\t" }

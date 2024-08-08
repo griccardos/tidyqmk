@@ -3,44 +3,210 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Wasm SVG Example</title>
+        <title>Tidyqmk</title>
     </head>
     <body>
+        <div>
+            <h2>Tidyqmk</h2>
+            <pre>
+Copy keymap from keymap.c, and it will be cleaned up
+Copy everything between the { and } of
+the keymaps array in keymap.c
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+        <b>COPY THIS CODE</b>
+};
 
-        <textarea id="qmkin" style="width: 100%; height: 200px;"></textarea>
-        <textarea id="qmkout" style="width: 100%; height: 200px;"></textarea>
-            
-        <h1>Generated SVG</h1>
-        <div id="svg-container"></div>
+Limitations:
+- Only supports split keyboards (other layouts may work)
+- Removes comments
+- This is alpha software, please test it compiles, use at your own risk.
+
+            </pre>
+        </div>
+        <h3>Input Keymap from keymap.c</h3>
+        <textarea id="qmkin">
+[_DEFAULT] = LAYOUT_split_3x6_3(
+      KC_A, KC_B, KC_C, KC_D, KC_E, KC_F, S(KC_F), S(KC_E), S(KC_D), S(KC_C), S(KC_B), S(KC_A),
+      KC_G, KC_H, KC_I, KC_J, KC_K, KC_L, S(KC_L), S(KC_K), S(KC_J), S(KC_I), S(KC_H), S(KC_G),
+      KC_M, KC_N, KC_O, KC_P, KC_Q, KC_R, S(KC_R), S(KC_Q), S(KC_P), S(KC_O), S(KC_N), S(KC_M),
+                              KC_S, KC_T, KC_U,  S(KC_U), S(KC_T), S(KC_S)
+  ),
+  [_LOWER] = LAYOUT_split_3x6_3(
+      KC_1, KC_2, KC_3, KC_4, KC_5, KC_6,                    KC_F1, KC_F2, KC_F3, KC_F4, KC_F5, KC_F6,
+      KC_7, KC_8, KC_9, KC_0, KC_MINS, KC_EQL,                KC_F7, KC_F8, KC_F9, KC_F10, KC_F11, KC_F12,
+      KC_GRV, KC_BSLS, KC_LBRC, KC_RBRC, KC_SCLN, KC_QUOT,     KC_PGUP, KC_PGDN, KC_HOME, KC_END, KC_DEL, KC_INS,
+                              KC_SLSH, KC_DOT, KC_COMM,     KC_LEFT, KC_DOWN, KC_UP
+  ),
+
+
+        </textarea>
+        <label id="qmkerror" style="color: red"></label>
+
+        <div id="results">
+            <h3>Cleaned</h3>
+            <textarea id="qmkout" disabled></textarea>
+
+            <img id="svgImage" alt="SVG Example" />
+            <a id="downloadLink" download="example.svg">Download</a>
+        </div>
+
+        <h3>Options</h3>
+        <div>
+            <div style="display: flex">
+                <div style="width: 150px">Thumb Shift In:</div>
+                <input type="number" id="thumb_shift_in" required />
+            </div>
+
+            <div style="display: flex">
+                <label style="width: 150px">Left Align:</label>
+                <input type="checkbox" id="left_align" /><br />
+            </div>
+
+            <div style="display: flex">
+                <label style="width: 150px">Split Space:</label>
+                <input type="number" id="split_space" required />
+            </div>
+
+            <div style="display: flex">
+                <label style="width: 150px">Align Layers:</label>
+                <input type="checkbox" id="align_layers" />
+            </div>
+        </div>
 
         <script type="module">
-            import init, { generate_svg } from "./tidyqmkweb.js";
+            import init, { generate_svg, PrintOptions } from "./tidyqmkweb.js";
 
             async function run() {
                 // Initialize the Wasm module
                 await init();
                 // Generate the SVG string using the Wasm function
+                await loadOptions();
                 await update();
-                
             }
-            async function update(){
+            async function loadOptions() {
+                const ops = new PrintOptions();
+                document.getElementById("thumb_shift_in").value =
+                    ops.thumb_shift_in;
+                document.getElementById("left_align").checked = ops.left_align;
+                document.getElementById("split_space").value = ops.split_space;
+                document.getElementById("align_layers").checked =
+                    ops.align_layers;
+            }
+
+            async function update() {
                 //get input
                 const qmkin = document.getElementById("qmkin").value;
-                
-                const [svgString,outString] = generate_svg(qmkin);
 
-                // Create a new DOM element to hold the SVG
-                const svgContainer = document.getElementById("svg-container");
-                svgContainer.innerHTML = svgString;
+                let ops = new PrintOptions();
+                // get options
+                ops.thumb_shift_in = parseInt(
+                    document.getElementById("thumb_shift_in").value,
+                );
+                ops.left_align = document.getElementById("left_align").checked;
+                ops.split_space = parseInt(
+                    document.getElementById("split_space").value,
+                );
+                ops.align_layers =
+                    document.getElementById("align_layers").checked;
 
-                //output 
+                const [svgString, outString, error] = generate_svg(qmkin, ops);
+
+                //output
                 document.getElementById("qmkout").value = outString;
-                
+                document.getElementById("qmkerror").innerText = error;
+
+                //svg
+                // Create a blob from the SVG string
+                const svgBlob = new Blob([svgString], {
+                    type: "image/svg+xml;charset=utf-8",
+                });
+                const url = URL.createObjectURL(svgBlob);
+                // Set the src of the image to the blob URL
+                document.getElementById("svgImage").src = url;
+                // Set the href of the download link to the blob URL
+                document.getElementById("downloadLink").href = url;
+
+                //hide results if error
+                if (error) {
+                    document.getElementById("results").style.display = "none";
+                } else {
+                    document.getElementById("results").style.display = "block";
+                }
             }
             //on input change
             document.getElementById("qmkin").addEventListener("input", update);
+            document
+                .getElementById("thumb_shift_in")
+                .addEventListener("input", update);
+            document
+                .getElementById("left_align")
+                .addEventListener("input", update);
+            document
+                .getElementById("split_space")
+                .addEventListener("input", update);
+            document
+                .getElementById("align_layers")
+                .addEventListener("input", update);
 
             run();
         </script>
+        <style>
+            :root {
+                --background-color: #222222;
+                --text-color: #ffffff;
+                --textarea-bg: #2c2c2c;
+                --textarea-border: #555555;
+                --primary-color: #555555;
+            }
+
+            body {
+                font-family:
+                    ui-sans-serif,
+                    -apple-system,
+                    system-ui,
+                    Segoe UI;
+                background-color: var(--background-color);
+                color: var(--text-color);
+                transition:
+                    background-color 0.3s,
+                    color 0.3s;
+            }
+
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            img {
+                margin-top: 20px;
+            }
+            h3 {
+                color: var(--primary-color);
+            }
+
+            textarea {
+                width: calc(100% - 20px);
+                height: 200px;
+                background-color: var(--textarea-bg);
+                border: 1px solid var(--textarea-border);
+                border-radius: 5px;
+                padding: 10px;
+
+                color: var(--text-color);
+                transition:
+                    background-color 0.3s,
+                    border-color 0.3s,
+                    color 0.3s;
+            }
+
+            label {
+                margin-top: 10px;
+            }
+            #downloadLink {
+                display: block;
+                margin-top: 10px;
+                color: var(--primary-color);
+            }
+        </style>
     </body>
 </html>
