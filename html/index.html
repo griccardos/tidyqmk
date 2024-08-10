@@ -13,13 +13,10 @@ Copy keymap from keymap.c, and it will be cleaned up
 Copy everything between the { and } of
 the keymaps array in keymap.c
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-        <b>COPY THIS CODE</b>
+        <b>-&gt;COPY THIS CODE&lt;-</b>
 };
 
-Limitations:
-- Only supports split keyboards (other layouts may work)
-- Removes comments
-- This is alpha software, please test it compiles, use at your own risk.
+This is alpha software, please test it compiles, use at your own risk.
 
             </pre>
         </div>
@@ -46,7 +43,11 @@ Limitations:
             <h3>Cleaned</h3>
             <textarea id="qmkout" disabled></textarea>
 
-            <img id="svgImage" alt="SVG Example" />
+            <img
+                id="svgImage"
+                alt="SVG Example"
+                style="border: 1px solid #555555"
+            />
             <a id="downloadLink" download="example.svg">Download</a>
         </div>
 
@@ -193,7 +194,7 @@ Limitations:
                 margin-top: 20px;
             }
             h3 {
-                color: var(--primary-color);
+                color: white;
             }
 
             textarea {

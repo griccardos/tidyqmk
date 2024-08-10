@@ -480,4 +480,20 @@ mod tests {
         let keymap = get_keymap(prog.next().unwrap(), &ops).unwrap();
         keymap_string(&keymap, &ops);
     }
+    #[test]
+    fn blank_lines() {
+        let example = r#"
+            [0] = LAYOUT_universal(
+            KC_A,
+
+            KC_B
+
+                       ),
+        "#;
+        let ops = PrintOptions::default();
+        let mut prog = MyParser::parse(Rule::programouter, example).unwrap();
+        let keymap = get_keymap(prog.next().unwrap(), &ops).unwrap();
+        keymap_string(&keymap, &ops);
+        assert_eq!(keymap.layers[0].keys.len(), 2);
+    }
 }

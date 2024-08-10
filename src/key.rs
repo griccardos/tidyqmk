@@ -77,46 +77,60 @@ fn nice_function(name: &str, params: &Vec<String>, raw: &str) -> PrintKey {
         PrintKey {
             top: tap.top,
             middle: tap.middle,
-            bottom: format!("L{}", params[0]),
+            bottom: format!("L-{}", params[0]),
         }
-    } else if (name == "LSFT_T" || name == "RSFT_T") && params.len() == 1 {
+    } else if (name == "LSFT_T" || name == "RSFT_T" || name == "SFT_T") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey {
             top: tap.top,
             middle: tap.middle,
             bottom: "⇧".to_string(),
         }
-    } else if (name == "LCTL_T" || name == "RCTL_T") && params.len() == 1 {
+    } else if (name == "LCTL_T" || name == "RCTL_T" || name == "CTL_T") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey {
             top: tap.top,
             middle: tap.middle,
             bottom: "⌃".to_string(),
         }
-    } else if (name == "LALT_T" || name == "RALT_T") && params.len() == 1 {
+    } else if (name == "LALT_T" || name == "RALT_T" || name == "ALT_T") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey {
             top: tap.top,
             middle: tap.middle,
             bottom: "⌥".to_string(),
         }
-    } else if (name == "LGUI_T" || name == "RGUI_T") && params.len() == 1 {
+    } else if (name == "LGUI_T" || name == "RGUI_T" || name == "GUI_T") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey {
             top: tap.top,
             middle: tap.middle,
             bottom: "⌘".to_string(),
         }
-    } else if name == "S" && params.len() == 1 {
+    } else if (name == "MEH_T") && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey {
+            top: tap.top,
+            middle: tap.middle,
+            bottom: "MEH".to_string(),
+        }
+    } else if (name == "HYPR" || name == "ALL_T") && params.len() == 1 {
+        let tap = nice_code(&params[0]);
+        PrintKey {
+            top: tap.top,
+            middle: tap.middle,
+            bottom: "HYPR".to_string(),
+        }
+    } else if (name == "S" || name == "LSFT") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey::mt(&format!("⇧{}", tap.middle), &tap.top)
-    } else if name == "C" && params.len() == 1 {
+    } else if (name == "C" || name == "LCTL") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey::mt(&format!("⌃{}", tap.middle), &tap.top)
-    } else if name == "A" && params.len() == 1 {
+    } else if (name == "A" || name == "LALT") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey::mt(&format!("⌥{}", tap.middle), &tap.top)
-    } else if name == "G" && params.len() == 1 {
+    } else if (name == "G" || name == "LGUI") && params.len() == 1 {
         let tap = nice_code(&params[0]);
         PrintKey::mt(&format!("⌘{}", tap.middle), &tap.top)
     } else {

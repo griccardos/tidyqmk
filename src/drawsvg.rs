@@ -44,7 +44,7 @@ pub fn create_svg(keymap: &Keymap, ops: &PrintOptions) -> String {
             .set("font-size", "20")
             .set("dominant-baseline", "middle");
         group = group.add(header);
-        let surround = Rectangle::new()
+        /*let surround = Rectangle::new()
             .set("x", 10)
             .set("y", layi * layer_height)
             .set("width", full_width - 20)
@@ -52,7 +52,7 @@ pub fn create_svg(keymap: &Keymap, ops: &PrintOptions) -> String {
             .set("fill", "none")
             .set("stroke", "white")
             .set("stroke-width", 1);
-        group = group.add(surround);
+        group = group.add(surround);*/
         let centre = grid.first().unwrap().len() / 2;
         for (li, line) in grid.iter().enumerate() {
             for (i, code) in line.iter().enumerate() {
@@ -65,13 +65,13 @@ pub fn create_svg(keymap: &Keymap, ops: &PrintOptions) -> String {
                     let rect = Rectangle::new()
                         .set("x", x)
                         .set("y", y)
-                        .set("width", key_width - 5)
-                        .set("height", key_height - 5)
+                        .set("width", key_width - 7)
+                        .set("height", key_height - 7)
                         .set("rx", 10) // radius for rounded corners
                         .set("ry", 10)
-                        .set("fill", "none")
-                        .set("stroke", "white")
-                        .set("stroke-width", 1);
+                        .set("fill", "#2c2c2c")
+                        .set("stroke", "#555555")
+                        .set("stroke-width", 2);
 
                     group = group.add(rect);
                     let nice = nice_code(code);
@@ -93,7 +93,7 @@ pub fn create_svg(keymap: &Keymap, ops: &PrintOptions) -> String {
                     group = group.add(text_top);
                     let text_bottom = Text::new(nice.bottom)
                         .set("x", x + key_width / 2)
-                        .set("y", y + key_height - 10)
+                        .set("y", y + key_height - 16)
                         .set("fill", "white")
                         .set("stroke", "none")
                         .set("text-anchor", "middle")
