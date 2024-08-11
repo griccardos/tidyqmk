@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  buildrust:
+  build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -33,19 +33,15 @@ jobs:
         cargo install wasm-bindgen-cli wasm-pack
         wasm-pack build  --target web --out-dir build
         cp html/index.html build/
-  # Build job
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./build
-          destination: ./_site
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Build with Jekyll
+      uses: actions/jekyll-build-pages@v1
+      with:
+        source: ./build
+        destination: ./_site
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
 
   # Deployment job
   deploy:
