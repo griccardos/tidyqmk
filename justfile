@@ -4,7 +4,7 @@ default: all
 
 #clean build directory
 #only for macos
-[macos]
+[unix]
 all:
     rm -rf build
     mkdir build
