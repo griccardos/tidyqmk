@@ -19,7 +19,7 @@ jobs:
     - name: Build
       run: |
         mkdir build
-        cargo install wasm-bindgen-cli
+        cargo install wasm-bindgen-cli wasm-pack
         wasm-pack build  --target web --out-dir build
         cp html/index.html build/
         
