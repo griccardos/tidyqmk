@@ -3,7 +3,7 @@
 default: all
 
 #clean build directory
-#only for macos
+#only for macos/linux
 [unix]
 all:
     rm -rf build
