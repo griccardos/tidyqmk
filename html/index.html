@@ -42,7 +42,7 @@ This is alpha software, please test it compiles, use at your own risk.
         <div id="results">
             <h3>Cleaned</h3>
             <textarea id="qmkout" disabled></textarea>
-
+            <button id="copyButton">Copy to clipboard</button>
             <img
                 id="svgImage"
                 alt="SVG Example"
@@ -76,6 +76,9 @@ This is alpha software, please test it compiles, use at your own risk.
                 <label style="width: 150px">Number of thumbs:</label>
                 <input type="number" id="number_of_thumbs" />
             </div>
+            <div style="display: flex">
+                <label style="width: 150px">Draw Nice Labels before:</label>
+                <input type="checkbox" id="draw_nice" />
         </div>
 
         <script type="module">
@@ -87,6 +90,8 @@ This is alpha software, please test it compiles, use at your own risk.
                 // Generate the SVG string using the Wasm function
                 await loadOptions();
                 await update();
+                
+                document.getElementById("copyButton").addEventListener("click", copyClip);
             }
             async function loadOptions() {
                 const ops = new PrintOptions();
@@ -98,7 +103,14 @@ This is alpha software, please test it compiles, use at your own risk.
                     ops.align_layers;
                 document.getElementById("number_of_thumbs").value =
                     ops.number_of_thumbs;
+                document.getElementById("draw_nice").value = ops.draw_nice;
             }
+          
+            
+             async function copyClip() {
+                const text = document.getElementById("qmkout");
+                await navigator.clipboard.writeText(text.value);
+             }
 
             async function update() {
                 //get input
@@ -118,6 +130,7 @@ This is alpha software, please test it compiles, use at your own risk.
                 ops.number_of_thumbs = parseInt(
                     document.getElementById("number_of_thumbs").value,
                 );
+                ops.draw_nice = document.getElementById("draw_nice").checked;
 
                 const [svgString, outString, error] = generate_svg(qmkin, ops);
 
@@ -159,6 +172,9 @@ This is alpha software, please test it compiles, use at your own risk.
                 .addEventListener("input", update);
             document
                 .getElementById("number_of_thumbs")
+                .addEventListener("input", update);
+            document
+                .getElementById("draw_nice")
                 .addEventListener("input", update);
 
             run();

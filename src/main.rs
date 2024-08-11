@@ -14,7 +14,8 @@ mod myparser;
 mod options;
 
 fn main() {
-    let ops = PrintOptions::default();
+    let mut ops = PrintOptions::default();
+    ops.draw_nice = true;
     let example = r#"
         [0] = LAYOUT_universal(
           KC_Q, KC_W, KC_F, KC_P, KC_B,                                             KC_1, KC_2, KC_U,    KC_Y,   KC_SCLN,

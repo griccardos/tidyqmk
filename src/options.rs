@@ -7,6 +7,7 @@ pub struct PrintOptions {
     pub split_space: usize,
     pub align_layers: bool,
     pub number_of_thumbs: usize,
+    pub draw_nice: bool,
 }
 #[wasm_bindgen]
 impl PrintOptions {
@@ -24,6 +25,7 @@ impl Default for PrintOptions {
             split_space: 5,
             align_layers: true,
             number_of_thumbs: 1,
+            draw_nice: false,
         }
     }
 }

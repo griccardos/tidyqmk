@@ -5,7 +5,7 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{error::MyError, options::PrintOptions};
+use crate::{error::MyError, key::nice_code, options::PrintOptions};
 
 pub struct Keymap {
     pub layers: Vec<Layer>,
@@ -179,13 +179,54 @@ fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Opti
 pub fn keymap_string(keymap: &Keymap, ops: &PrintOptions) -> String {
     let column_count = keymap.layers[0].keys[0].len();
 
-    println!("{:?} cols:{}", keymap.layers[0].keys, column_count);
-
-    let column_layer_lens = keymap
+    let layer_keys = keymap
         .layers
         .iter()
+        .map(|l| l.keys.into_vec_cloned())
+        .to_vec();
+
+    let column_layer_lengths = get_column_layer_lengths(&layer_keys, column_count);
+    let mut result = String::new();
+
+    for (layi, layer) in layer_keys.iter().enumerate() {
+        let mut layer_string = String::new();
+        layer_string.push_str(&format!(
+            "[{}] = {} (\n",
+            keymap.layers[layi].num, keymap.layers[layi].name
+        ));
+        layer_string.push_str(&layout_keys(layer, ops, &column_layer_lengths, layi, ","));
+
+        if ops.draw_nice {
+            let layer_keys_nice = layer
+                .iter()
+                .map(|r| {
+                    r.iter()
+                        .map(|k| k.as_ref().map(|a| nice_code(a).middle.clone()))
+                        .to_vec()
+                })
+                .to_vec();
+            let nice = layout_keys(&layer_keys_nice, ops, &column_layer_lengths, layi, " ");
+
+            result.push_str("/*\n");
+            result.push_str(&nice);
+            result.push_str("*/\n");
+        }
+        result.push_str(&layer_string);
+        result.push_str(")");
+        result.push_str(",\n");
+    }
+
+    result
+}
+
+fn get_column_layer_lengths(
+    keymap: &Vec<Vec<Vec<Option<String>>>>,
+    column_count: usize,
+) -> Vec<Vec<usize>> {
+    keymap
+        .iter()
         .map(|layer| {
-            layer.keys.iter().fold(
+            layer.iter().fold(
                 std::iter::repeat(0).take(column_count).collect(),
                 |acc: Vec<usize>, line| {
                     acc.iter()
@@ -195,60 +236,58 @@ pub fn keymap_string(keymap: &Keymap, ops: &PrintOptions) -> String {
                 },
             )
         })
-        .collect::<Vec<_>>();
-    let mut result = String::new();
+        .to_vec()
+}
 
-    for (layi, layer) in keymap.layers.iter().enumerate() {
-        let grid = &layer.keys;
-        result.push_str(&format!("[{}] = {} (\n", layer.num, layer.name));
-
-        for (li, line) in grid.iter().enumerate() {
-            println!("line is {:?}", line);
-            println!("column_layer_lens is {:?}", column_layer_lens);
-
-            for (i, code) in line.iter().enumerate() {
-                let max_len = if ops.align_layers {
-                    column_layer_lens.iter().map(|x| x[i]).max().unwrap()
-                } else {
-                    column_layer_lens[layi][i]
-                };
-                let width = max_len + 1;
-                let centre = line.len() / 2;
-                let mut comma = ",";
-                //check if there are no more buttons after this
-                if li == grid.len() - 1 {
-                    if line.iter().skip(i + 1).all(|x| x.is_none()) {
-                        comma = "";
-                    }
-                };
-                match code {
-                    Some(code) => {
-                        if i >= centre {
-                            result.push_str(&format!("{: <1$}{comma}", code, width));
+fn layout_keys(
+    grid: &Vec<Vec<Option<String>>>,
+    ops: &PrintOptions,
+    column_layer_lens: &Vec<Vec<usize>>,
+    layi: usize,
+    sep: &str,
+) -> String {
+    let mut layer_string = String::new();
+    for (li, line) in grid.iter().enumerate() {
+        for (i, code) in line.iter().enumerate() {
+            let max_len = if ops.align_layers {
+                column_layer_lens.iter().map(|x| x[i]).max().unwrap()
+            } else {
+                column_layer_lens[layi][i]
+            };
+            let width = max_len + 1;
+            let centre = line.len() / 2;
+            let mut comma = sep;
+            //check if there are no more buttons after this
+            if li == grid.len() - 1 {
+                if line.iter().skip(i + 1).all(|x| x.is_none()) {
+                    comma = "";
+                }
+            };
+            match code {
+                Some(code) => {
+                    if i >= centre {
+                        layer_string.push_str(&format!("{: <1$}{comma}", code, width));
+                    } else {
+                        if ops.left_align {
+                            layer_string.push_str(&format!("{: <1$}{comma}", code, width));
                         } else {
-                            if ops.left_align {
-                                result.push_str(&format!("{: <1$}{comma}", code, width));
-                            } else {
-                                result.push_str(&format!("{: >1$}{comma}", code, width));
-                            }
+                            layer_string.push_str(&format!("{: >1$}{comma}", code, width));
                         }
                     }
-                    None => result.push_str(&format!("{: ^1$}", "  ", width + 1)), //+1 for the comma that is missing here
                 }
-
-                if i == centre - 1 {
-                    let space = std::iter::repeat(" ")
-                        .take(ops.split_space)
-                        .collect::<String>();
-                    result.push_str(&space);
-                }
+                None => layer_string.push_str(&format!("{: ^1$}", "  ", width + 1)), //+1 for the comma that is missing here
             }
-            result.push_str("\n");
+
+            if i == centre - 1 {
+                let space = std::iter::repeat(" ")
+                    .take(ops.split_space)
+                    .collect::<String>();
+                layer_string.push_str(&space);
+            }
         }
-        result.push_str(")");
-        result.push_str(",\n");
+        layer_string.push_str("\n");
     }
-    result
+    layer_string
 }
 
 pub fn into_diagnostics(e: &Error<Rule>) -> String {
@@ -495,5 +534,27 @@ mod tests {
         let keymap = get_keymap(prog.next().unwrap(), &ops).unwrap();
         keymap_string(&keymap, &ops);
         assert_eq!(keymap.layers[0].keys.len(), 2);
+    }
+
+    #[test]
+    fn spacing() {
+        let example = r#"
+            [0] = LAYOUT_universal(
+            KC_A, KC_B,
+            KC_Q, KC_W,
+            ),
+        "#;
+        let ops = PrintOptions::default();
+        let mut prog = MyParser::parse(Rule::programouter, example).unwrap();
+        let keymap = get_keymap(prog.next().unwrap(), &ops).unwrap();
+        let str = keymap_string(&keymap, &ops);
+        assert_eq!(
+            str,
+            r#"[0] = LAYOUT_universal (
+ KC_A,                 KC_B ,
+       KC_Q,     KC_W       
+),
+"#
+        );
     }
 }
