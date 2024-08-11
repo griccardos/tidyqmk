@@ -47,7 +47,7 @@ fn get_layer(pair: Pair<Rule>, ops: &PrintOptions) -> Result<Layer, MyError> {
     for line in lines {
         let mut keycodes = vec![];
         for keycode in line.into_inner() {
-            keycodes.push(format_pair(keycode, ops))
+            keycodes.push(format_pair(keycode))
         }
         line_codes.push(keycodes);
     }
@@ -60,12 +60,12 @@ fn get_layer(pair: Pair<Rule>, ops: &PrintOptions) -> Result<Layer, MyError> {
     })
 }
 
-pub fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> String {
+pub fn format_pair(pair: pest::iterators::Pair<Rule>) -> String {
     let mut result = String::new();
     //println!("key is {:?}", pair);
     match pair.as_rule() {
         Rule::key => {
-            result.push_str(&format_pair(pair.into_inner().next().unwrap(), ops));
+            result.push_str(&format_pair(pair.into_inner().next().unwrap()));
         }
         Rule::keycode => {
             result.push_str(pair.as_str());
@@ -73,11 +73,11 @@ pub fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Str
         Rule::function => {
             let mut inner_pair = pair.into_inner();
             let function_name = inner_pair.next().unwrap();
-            result.push_str(&format_pair(function_name, ops));
-            result.push_str("(");
+            result.push_str(&format_pair(function_name));
+            result.push('(');
             let params = inner_pair.next().unwrap();
-            result.push_str(&format_pair(params, ops));
-            result.push_str(")");
+            result.push_str(&format_pair(params));
+            result.push(')');
         }
         Rule::param => {
             result.push_str(pair.as_str());
@@ -86,18 +86,18 @@ pub fn format_pair(pair: pest::iterators::Pair<Rule>, ops: &PrintOptions) -> Str
             let mut params = Vec::new();
             let inner = pair.into_inner();
             for code in inner {
-                params.push(format_pair(code, ops));
+                params.push(format_pair(code));
             }
             result.push_str(params.join(",").as_str());
         }
         Rule::layerblock => {
             let mut inner = pair.into_inner();
             let layernum = inner.next().unwrap();
-            let layer = format_pair(layernum, ops);
+            let layer = format_pair(layernum);
             let layercmd = inner.next().unwrap().as_str();
             result.push_str(&format!(
                 "[{layer}] = {layercmd}(\n{}\n)",
-                format_pair(inner.next().unwrap(), ops)
+                format_pair(inner.next().unwrap())
             ));
         }
         Rule::program => {} //dont use
@@ -144,7 +144,7 @@ fn create_grid(line_codes: Vec<Vec<String>>, ops: &PrintOptions) -> Vec<Vec<Opti
     let rows = line_codes.len();
     let mut grid = line_codes
         .into_iter()
-        .map(|a| a.into_iter().map(|b| Some(b)).to_vec())
+        .map(|a| a.into_iter().map(Some).to_vec())
         .to_vec();
 
     //make sure even number in grid (sometimes less columns on one side)
@@ -212,7 +212,7 @@ pub fn keymap_string(keymap: &Keymap, ops: &PrintOptions) -> String {
             result.push_str("*/\n");
         }
         result.push_str(&layer_string);
-        result.push_str(")");
+        result.push(')');
         result.push_str(",\n");
     }
 
@@ -220,7 +220,7 @@ pub fn keymap_string(keymap: &Keymap, ops: &PrintOptions) -> String {
 }
 
 fn get_column_layer_lengths(
-    keymap: &Vec<Vec<Vec<Option<String>>>>,
+    keymap: &[Vec<Vec<Option<String>>>],
     column_count: usize,
 ) -> Vec<Vec<usize>> {
     keymap
@@ -240,9 +240,9 @@ fn get_column_layer_lengths(
 }
 
 fn layout_keys(
-    grid: &Vec<Vec<Option<String>>>,
+    grid: &[Vec<Option<String>>],
     ops: &PrintOptions,
-    column_layer_lens: &Vec<Vec<usize>>,
+    column_layer_lens: &[Vec<usize>],
     layi: usize,
     sep: &str,
 ) -> String {
@@ -258,34 +258,26 @@ fn layout_keys(
             let centre = line.len() / 2;
             let mut comma = sep;
             //check if there are no more buttons after this
-            if li == grid.len() - 1 {
-                if line.iter().skip(i + 1).all(|x| x.is_none()) {
-                    comma = "";
-                }
-            };
+            if li == grid.len() - 1 && line.iter().skip(i + 1).all(|x| x.is_none()) {
+                comma = "";
+            }
             match code {
                 Some(code) => {
-                    if i >= centre {
+                    if i >= centre || ops.left_align {
                         layer_string.push_str(&format!("{: <1$}{comma}", code, width));
                     } else {
-                        if ops.left_align {
-                            layer_string.push_str(&format!("{: <1$}{comma}", code, width));
-                        } else {
-                            layer_string.push_str(&format!("{: >1$}{comma}", code, width));
-                        }
+                        layer_string.push_str(&format!("{: >1$}{comma}", code, width));
                     }
                 }
                 None => layer_string.push_str(&format!("{: ^1$}", "  ", width + 1)), //+1 for the comma that is missing here
             }
 
             if i == centre - 1 {
-                let space = std::iter::repeat(" ")
-                    .take(ops.split_space)
-                    .collect::<String>();
+                let space = " ".repeat(ops.split_space);
                 layer_string.push_str(&space);
             }
         }
-        layer_string.push_str("\n");
+        layer_string.push('\n');
     }
     layer_string
 }
@@ -432,10 +424,7 @@ mod tests {
         let example = r#"KC_Q"#;
 
         let mut pairs = MyParser::parse(Rule::key, example).unwrap();
-        assert_eq!(
-            "KC_Q",
-            format_pair(pairs.next().unwrap(), &PrintOptions::default())
-        )
+        assert_eq!("KC_Q", format_pair(pairs.next().unwrap()))
     }
 
     #[test]
@@ -443,10 +432,7 @@ mod tests {
         let example = r#"LT(1,KC_NO)"#;
 
         let mut pairs = MyParser::parse(Rule::key, example).unwrap();
-        assert_eq!(
-            "LT(1,KC_NO)",
-            format_pair(pairs.next().unwrap(), &PrintOptions::default())
-        )
+        assert_eq!("LT(1,KC_NO)", format_pair(pairs.next().unwrap()))
     }
 
     #[test]

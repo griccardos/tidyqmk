@@ -14,8 +14,7 @@ mod myparser;
 mod options;
 
 fn main() {
-    let mut ops = PrintOptions::default();
-    ops.draw_nice = true;
+    let ops = PrintOptions::default();
     let example = r#"
 [0]=LAYOUT_split_3x6_3(
 KC_TAB,KC_Q,KC_W,KC_E,KC_R,KC_T,KC_Y,KC_U,KC_I,KC_O,KC_P,KC_BSPC,

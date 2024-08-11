@@ -1,7 +1,7 @@
 use easier::prelude::*;
 use pest::Parser;
 
-use crate::{myparser::format_pair, MyParser, PrintOptions, Rule};
+use crate::{myparser::format_pair, MyParser, Rule};
 
 #[derive(Default)]
 pub struct PrintKey {
@@ -43,7 +43,7 @@ impl From<&str> for KeyType {
         match parsed.as_rule() {
             Rule::keycode => KeyType::KeyCode(parsed.as_str().to_string()),
             Rule::function => {
-                let raw = format_pair(parsed.clone(), &PrintOptions::default());
+                let raw = format_pair(parsed.clone());
                 let mut inner = parsed.into_inner();
                 let out = inner.next().unwrap().as_str().to_string();
                 let params = inner.next().unwrap().into_inner();
@@ -71,7 +71,7 @@ pub fn nice_code(code: &str) -> PrintKey {
     }
 }
 
-fn nice_function(name: &str, params: &Vec<String>, raw: &str) -> PrintKey {
+fn nice_function(name: &str, params: &[String], raw: &str) -> PrintKey {
     if name == "LT" && params.len() == 2 {
         let tap = nice_code(&params[1]);
         PrintKey {

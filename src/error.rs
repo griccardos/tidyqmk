@@ -4,7 +4,7 @@ use crate::myparser::{into_diagnostics, Rule};
 
 #[derive(Debug)]
 pub enum MyError {
-    PestError(Error<Rule>),
+    PestError(Box<Error<Rule>>),
     KeymapError(String),
 }
 impl std::fmt::Display for MyError {
@@ -18,7 +18,7 @@ impl std::fmt::Display for MyError {
 
 impl From<Error<Rule>> for MyError {
     fn from(e: Error<Rule>) -> Self {
-        MyError::PestError(e)
+        MyError::PestError(Box::new(e))
     }
 }
 
