@@ -33,8 +33,6 @@ jobs:
         cargo install wasm-bindgen-cli wasm-pack
         wasm-pack build  --target web --out-dir build
         cp html/index.html build/
-    - name: Checkout
-      uses: actions/checkout@v4
     - name: Build with Jekyll
       uses: actions/jekyll-build-pages@v1
       with:
